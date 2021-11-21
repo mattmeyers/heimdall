@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mattmeyers/heimdall/client"
 	"github.com/mattmeyers/heimdall/http"
 	"github.com/mattmeyers/heimdall/logger"
 	"github.com/mattmeyers/heimdall/store/mem"
@@ -31,7 +32,9 @@ func run(args []string) error {
 		return err
 	}
 
-	userStore, err := mem.NewUserStore(mem.NewDB())
+	db := mem.NewDB()
+
+	userStore, err := mem.NewUserStore(db)
 	if err != nil {
 		return err
 	}
@@ -43,12 +46,24 @@ func run(args []string) error {
 
 	userController := &http.UserController{Service: *userService}
 
+	clientStore, err := mem.NewClientStore(db)
+	if err != nil {
+		return err
+	}
+
+	clientService, err := client.NewService(clientStore)
+	if err != nil {
+		return err
+	}
+
+	clientController := &http.ClientController{Service: *clientService}
+
 	s, err := http.NewServer(":8080", logger)
 	if err != nil {
 		return err
 	}
 
-	s.RegisterRoutes(userController)
+	s.RegisterRoutes(userController, clientController)
 
 	return s.ListenAndServe()
 }
