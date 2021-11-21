@@ -8,20 +8,23 @@ import (
 	"github.com/mattmeyers/heimdall/store"
 )
 
-type Store struct {
+type UserStore struct {
 	db *DB
 
-	lock *sync.Mutex
+	lock *sync.RWMutex
 }
 
-func NewUserStore(db *DB) (*Store, error) {
-	return &Store{
+func NewUserStore(db *DB) (*UserStore, error) {
+	return &UserStore{
 		db:   db,
-		lock: &sync.Mutex{},
+		lock: &sync.RWMutex{},
 	}, nil
 }
 
-func (s *Store) GetByID(ctx context.Context, id int) (store.User, error) {
+func (s *UserStore) GetByID(ctx context.Context, id int) (store.User, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	u, ok := s.db.user.rows[id]
 	if !ok {
 		return store.User{}, errors.New("user not found")
@@ -30,7 +33,10 @@ func (s *Store) GetByID(ctx context.Context, id int) (store.User, error) {
 	return *u, nil
 }
 
-func (s *Store) GetByEmail(ctx context.Context, email string) (store.User, error) {
+func (s *UserStore) GetByEmail(ctx context.Context, email string) (store.User, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	for _, u := range s.db.user.rows {
 		if u.Email == email {
 			return *u, nil
@@ -40,7 +46,10 @@ func (s *Store) GetByEmail(ctx context.Context, email string) (store.User, error
 	return store.User{}, errors.New("user not found")
 }
 
-func (s *Store) Create(ctx context.Context, u store.User) (int, error) {
+func (s *UserStore) Create(ctx context.Context, u store.User) (int, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if _, err := s.GetByEmail(ctx, u.Email); err == nil {
 		return 0, errors.New("user already exists")
 	}
