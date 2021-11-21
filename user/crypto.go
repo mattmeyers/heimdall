@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -93,7 +92,7 @@ func decodeHash(encodedHash string) ([]byte, []byte, argonParams, error) {
 		return nil, nil, argonParams{}, errors.New("unsupported argon2 algorithm")
 	}
 
-	if parts[2] != strconv.Itoa(argon2.Version) {
+	if parts[2] != fmt.Sprintf("v=%d", argon2.Version) {
 		return nil, nil, argonParams{}, errors.New("unsupported argon2 version")
 	}
 
@@ -114,6 +113,8 @@ func decodeHash(encodedHash string) ([]byte, []byte, argonParams, error) {
 	if err != nil {
 		return nil, nil, argonParams{}, errors.New("malformed hash")
 	}
+
+	p.keyLen = uint32(len(hash))
 
 	return hash, salt, p, nil
 }
