@@ -55,6 +55,25 @@ func (l Level) String() string {
 	return fmt.Sprintf("%%!(Level=%d)", l)
 }
 
+// ParseLevel converts a string to the corresponding Level. Comparisons are case insensitive.
+// If an unknown level is provided, then an error will be returned.
+func ParseLevel(l string) (Level, error) {
+	switch strings.ToLower(l) {
+	case "debug":
+		return LevelDebug, nil
+	case "info":
+		return LevelInfo, nil
+	case "warn":
+		return LevelWarn, nil
+	case "error":
+		return LevelError, nil
+	case "fatal":
+		return LevelFatal, nil
+	}
+
+	return Level(-1), errors.New("invalid log level")
+}
+
 func (l Level) validate() error {
 	if strings.HasPrefix("%!", l.String()) {
 		return errors.New("invalid Level")
