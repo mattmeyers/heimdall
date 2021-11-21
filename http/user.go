@@ -17,6 +17,7 @@ type UserController struct {
 func (c *UserController) Register(router *httprouter.Router) {
 	router.HandlerFunc("POST", "/users", c.RegisterUser)
 	router.HandlerFunc("GET", "/users/:id", c.GetByID)
+	router.HandlerFunc("POST", "/login", c.Login)
 }
 
 type registrationBody struct {
@@ -38,8 +39,31 @@ func (c *UserController) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(201)
 	w.Write([]byte(fmt.Sprintf(`{"id":%d}`, id)))
+}
+
+type loginBody struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+func (c *UserController) Login(w http.ResponseWriter, r *http.Request) {
+	var body loginBody
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = c.Service.Login(r.Context(), body.Email, body.Password)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	w.WriteHeader(200)
 }
 
 func (c *UserController) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +85,7 @@ func (c *UserController) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write(body)
 }
