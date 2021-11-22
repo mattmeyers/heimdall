@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mattmeyers/heimdall/auth"
 	"github.com/mattmeyers/heimdall/client"
 	"github.com/mattmeyers/heimdall/http"
 	"github.com/mattmeyers/heimdall/logger"
@@ -58,12 +59,19 @@ func run(args []string) error {
 
 	clientController := &http.ClientController{Service: *clientService}
 
+	authService, err := auth.NewService()
+	if err != nil {
+		return err
+	}
+
+	authController := &http.AuthController{Service: *authService}
+
 	s, err := http.NewServer(":8080", logger)
 	if err != nil {
 		return err
 	}
 
-	s.RegisterRoutes(userController, clientController)
+	s.RegisterRoutes(userController, clientController, authController)
 
 	return s.ListenAndServe()
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/mattmeyers/heimdall/user"
@@ -38,7 +39,6 @@ func (c *UserController) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(201)
 	w.Write([]byte(fmt.Sprintf(`{"id":%d}`, id)))
@@ -51,9 +51,19 @@ type loginBody struct {
 
 func (c *UserController) Login(w http.ResponseWriter, r *http.Request) {
 	var body loginBody
-	err := json.NewDecoder(r.Body).Decode(&body)
+	var err error
+
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		body, err = getloginBodyFromJSON(r)
+	} else if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+		body, err = getloginBodyFromForm(r)
+	} else {
+		http.Error(w, "Unsupported media type", http.StatusUnsupportedMediaType)
+		return
+	}
+
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -64,6 +74,27 @@ func (c *UserController) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(200)
+}
+
+func getloginBodyFromJSON(r *http.Request) (loginBody, error) {
+	var body loginBody
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		return loginBody{}, err
+	}
+
+	return body, nil
+}
+
+func getloginBodyFromForm(r *http.Request) (loginBody, error) {
+	if err := r.ParseForm(); err != nil {
+		return loginBody{}, err
+	}
+
+	return loginBody{
+		Email:    r.FormValue("email"),
+		Password: r.FormValue("password"),
+	}, nil
 }
 
 func (c *UserController) GetByID(w http.ResponseWriter, r *http.Request) {

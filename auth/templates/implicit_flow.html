@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sign in</title>
+</head>
+<body>
+  <h3>{{.clientID}} is requesting access to your account:</h3>
+  <p>Sign in to grant {{.clientID}} access.</p>
+  <form action="/login" method="post">
+    <p>Email:</p>
+    <input type="text" name="email">
+    <p>Password:</p>
+    <input type="Password" name="password">
+    <input type="hidden" name="client_id" value="{{.clientID}}">
+    <input type="hidden" name="redirect_url" value="{{.redirectURL}}">
+    <p>
+      <input type="submit" value="Sign in">
+    </p>
+  </form>
+</body>
+</html>

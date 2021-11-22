@@ -47,12 +47,12 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (store.User, e
 }
 
 func (s *UserStore) Create(ctx context.Context, u store.User) (int, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	if _, err := s.GetByEmail(ctx, u.Email); err == nil {
 		return 0, errors.New("user already exists")
 	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	u.ID = s.db.user.nextID
 	s.db.user.nextID++
