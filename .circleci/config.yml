@@ -1,0 +1,64 @@
+version: 2.1
+
+jobs:
+  build:
+    working_directory: ~/repo
+    docker:
+      - image: cimg/go:1.17.2
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - go-mod-v1-{{ checksum "go.sum" }}
+      - run:
+          name: Install Dependencies
+          command: go mod download
+      - save_cache:
+          key: go-mod-v1-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+
+  test:
+    working_directory: ~/repo
+    docker:
+      - image: cimg/go:1.17.2
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - go-mod-v1-{{ checksum "go.sum" }}
+      - run:
+          name: Run tests
+          command: go test -v ./...
+      - store_artifacts:
+          path: /tmp/artifacts
+
+  lint:
+    working_directory: ~/repo
+    docker:
+      - image: cimg/go:1.17.2
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - go-mod-v1-{{ checksum "go.sum" }}
+      - run:
+          name: Check formatting
+          command: diff -u <(echo -n) <(gofmt -d ./)
+      - store_artifacts:
+          path: /tmp/artifacts
+
+workflows:
+  build:
+    jobs:
+      - build:
+          name: Build
+      - test:
+          name: Test
+          requires:
+            - 'Build'
+      - lint:
+          name: Lint
+          requires:
+            - 'Build'
+      
