@@ -16,15 +16,11 @@ var templateFS embed.FS
 
 var templates = template.Must(template.ParseFS(templateFS, "templates/*"))
 
-type UserStore interface {
-	GetByEmail(ctx context.Context, email string) (store.User, error)
-}
-
 type Service struct {
-	userStore UserStore
+	userStore store.UserStore
 }
 
-func NewService(userStore UserStore) (*Service, error) {
+func NewService(userStore store.UserStore) (*Service, error) {
 	return &Service{userStore: userStore}, nil
 }
 
