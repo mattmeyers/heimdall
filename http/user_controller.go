@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/mattmeyers/heimdall/user"
@@ -18,7 +17,6 @@ type UserController struct {
 func (c *UserController) Register(router *httprouter.Router) {
 	router.HandlerFunc("POST", "/users", c.RegisterUser)
 	router.HandlerFunc("GET", "/users/:id", c.GetByID)
-	router.HandlerFunc("POST", "/login", c.Login)
 }
 
 type registrationBody struct {
@@ -42,59 +40,6 @@ func (c *UserController) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(201)
 	w.Write([]byte(fmt.Sprintf(`{"id":%d}`, id)))
-}
-
-type loginBody struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-func (c *UserController) Login(w http.ResponseWriter, r *http.Request) {
-	var body loginBody
-	var err error
-
-	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		body, err = getloginBodyFromJSON(r)
-	} else if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
-		body, err = getloginBodyFromForm(r)
-	} else {
-		http.Error(w, "Unsupported media type", http.StatusUnsupportedMediaType)
-		return
-	}
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	err = c.Service.Login(r.Context(), body.Email, body.Password)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	w.WriteHeader(200)
-}
-
-func getloginBodyFromJSON(r *http.Request) (loginBody, error) {
-	var body loginBody
-	err := json.NewDecoder(r.Body).Decode(&body)
-	if err != nil {
-		return loginBody{}, err
-	}
-
-	return body, nil
-}
-
-func getloginBodyFromForm(r *http.Request) (loginBody, error) {
-	if err := r.ParseForm(); err != nil {
-		return loginBody{}, err
-	}
-
-	return loginBody{
-		Email:    r.FormValue("email"),
-		Password: r.FormValue("password"),
-	}, nil
 }
 
 func (c *UserController) GetByID(w http.ResponseWriter, r *http.Request) {

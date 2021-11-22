@@ -59,7 +59,7 @@ func run(args []string) error {
 
 	clientController := &http.ClientController{Service: *clientService}
 
-	authService, err := auth.NewService()
+	authService, err := auth.NewService(userStore)
 	if err != nil {
 		return err
 	}

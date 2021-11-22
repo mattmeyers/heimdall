@@ -1,4 +1,4 @@
-package user
+package crypto
 
 import (
 	"crypto/rand"
@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-type argonParams struct {
+type ArgonParams struct {
 	iterations uint32
 	memory     uint32
 	threads    uint8
@@ -19,7 +19,7 @@ type argonParams struct {
 	saltLen    uint32
 }
 
-var DefaultParams = argonParams{
+var DefaultParams = ArgonParams{
 	iterations: 3,
 	memory:     64 * 1024,
 	threads:    4,
@@ -27,7 +27,7 @@ var DefaultParams = argonParams{
 	saltLen:    16,
 }
 
-func validatePassword(password, encodedHash string) (bool, error) {
+func ValidatePassword(password, encodedHash string) (bool, error) {
 	hash, salt, params, err := decodeHash(encodedHash)
 	if err != nil {
 		return false, err
@@ -49,7 +49,7 @@ func hashesAreEqual(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
-func getPasswordHash(password string, p argonParams) (string, error) {
+func GetPasswordHash(password string, p ArgonParams) (string, error) {
 	salt, err := generateSalt(p.saltLen)
 	if err != nil {
 		return "", err
@@ -63,11 +63,11 @@ func getPasswordHash(password string, p argonParams) (string, error) {
 	return encodeHash(hash, salt, p), nil
 }
 
-func hashPassword(password string, salt []byte, p argonParams) ([]byte, error) {
+func hashPassword(password string, salt []byte, p ArgonParams) ([]byte, error) {
 	return argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.threads, p.keyLen), nil
 }
 
-func encodeHash(hash, salt []byte, p argonParams) string {
+func encodeHash(hash, salt []byte, p ArgonParams) string {
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
@@ -82,36 +82,36 @@ func encodeHash(hash, salt []byte, p argonParams) string {
 	)
 }
 
-func decodeHash(encodedHash string) ([]byte, []byte, argonParams, error) {
+func decodeHash(encodedHash string) ([]byte, []byte, ArgonParams, error) {
 	parts := strings.Split(encodedHash, "$")
 	if len(parts) != 6 {
-		return nil, nil, argonParams{}, errors.New("malformed hash encoding")
+		return nil, nil, ArgonParams{}, errors.New("malformed hash encoding")
 	}
 
 	if parts[1] != "argon2id" {
-		return nil, nil, argonParams{}, errors.New("unsupported argon2 algorithm")
+		return nil, nil, ArgonParams{}, errors.New("unsupported argon2 algorithm")
 	}
 
 	if parts[2] != fmt.Sprintf("v=%d", argon2.Version) {
-		return nil, nil, argonParams{}, errors.New("unsupported argon2 version")
+		return nil, nil, ArgonParams{}, errors.New("unsupported argon2 version")
 	}
 
-	var p argonParams
+	var p ArgonParams
 	n, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &p.memory, &p.iterations, &p.threads)
 	if err != nil {
-		return nil, nil, argonParams{}, err
+		return nil, nil, ArgonParams{}, err
 	} else if n != 3 {
-		return nil, nil, argonParams{}, errors.New("malformed hash encoding")
+		return nil, nil, ArgonParams{}, errors.New("malformed hash encoding")
 	}
 
 	salt, err := base64.RawStdEncoding.Strict().DecodeString(parts[4])
 	if err != nil {
-		return nil, nil, argonParams{}, errors.New("malformed salt")
+		return nil, nil, ArgonParams{}, errors.New("malformed salt")
 	}
 
 	hash, err := base64.RawStdEncoding.Strict().DecodeString(parts[5])
 	if err != nil {
-		return nil, nil, argonParams{}, errors.New("malformed hash")
+		return nil, nil, ArgonParams{}, errors.New("malformed hash")
 	}
 
 	p.keyLen = uint32(len(hash))
