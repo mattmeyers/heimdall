@@ -10,6 +10,7 @@ import (
 	"github.com/mattmeyers/heimdall/http"
 	"github.com/mattmeyers/heimdall/logger"
 	"github.com/mattmeyers/heimdall/store/mem"
+	"github.com/mattmeyers/heimdall/store/sqlite"
 	"github.com/mattmeyers/heimdall/user"
 )
 
@@ -33,11 +34,34 @@ func run(args []string) error {
 		return err
 	}
 
-	db := mem.NewDB()
+	var userStore user.UserStore
+	var clientStore client.ClientStore
+	if flags.storeDriver == "mem" {
+		db := mem.NewDB()
+		userStore, err = mem.NewUserStore(db)
+		if err != nil {
+			return err
+		}
 
-	userStore, err := mem.NewUserStore(db)
-	if err != nil {
-		return err
+		clientStore, err = mem.NewClientStore(db)
+		if err != nil {
+			return err
+		}
+	} else if flags.storeDriver == "sqlite" {
+		db, err := sqlite.NewDB("file:db/data/heimdall-dev.db?mode=rw")
+		if err != nil {
+			return err
+		}
+
+		userStore, err = sqlite.NewUserStore(db)
+		if err != nil {
+			return err
+		}
+
+		clientStore, err = sqlite.NewClientStore(db)
+		if err != nil {
+			return err
+		}
 	}
 
 	userService, err := user.NewService(userStore)
@@ -46,11 +70,6 @@ func run(args []string) error {
 	}
 
 	userController := &http.UserController{Service: *userService}
-
-	clientStore, err := mem.NewClientStore(db)
-	if err != nil {
-		return err
-	}
 
 	clientService, err := client.NewService(clientStore)
 	if err != nil {
@@ -84,7 +103,7 @@ type flags struct {
 func initializeFlags() flags {
 	var fs flags
 
-	flag.StringVar(&fs.storeDriver, "driver", "mem", "Database driver: mem")
+	flag.StringVar(&fs.storeDriver, "driver", "mem", "Database driver: mem, sqlite")
 	flag.StringVar(&fs.logLevel, "log-level", "info", "Min log level: debug, info, warn, error, fatal")
 
 	flag.Parse()
