@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"github.com/mattmeyers/heimdall/client"
 	"github.com/mattmeyers/heimdall/http"
 	"github.com/mattmeyers/heimdall/logger"
+	"github.com/mattmeyers/heimdall/store"
 	"github.com/mattmeyers/heimdall/store/mem"
 	"github.com/mattmeyers/heimdall/store/sqlite"
 	"github.com/mattmeyers/heimdall/user"
@@ -34,51 +36,35 @@ func run(args []string) error {
 		return err
 	}
 
-	var userStore user.UserStore
-	var clientStore client.ClientStore
-	if flags.storeDriver == "mem" {
-		db := mem.NewDB()
-		userStore, err = mem.NewUserStore(db)
-		if err != nil {
-			return err
-		}
-
-		clientStore, err = mem.NewClientStore(db)
-		if err != nil {
-			return err
-		}
-	} else if flags.storeDriver == "sqlite" {
-		db, err := sqlite.NewDB("file:db/data/heimdall-dev.db?mode=rw")
-		if err != nil {
-			return err
-		}
-
-		userStore, err = sqlite.NewUserStore(db)
-		if err != nil {
-			return err
-		}
-
-		clientStore, err = sqlite.NewClientStore(db)
-		if err != nil {
-			return err
-		}
+	var ss stores
+	switch flags.storeDriver {
+	case "mem":
+		ss, err = getMemStores()
+	case "sqlite":
+		ss, err = getSqliteStores("file:db/data/heimdall-dev.db?mode=rw")
+	default:
+		return errors.New("unknown driver")
 	}
 
-	userService, err := user.NewService(userStore)
+	if err != nil {
+		return err
+	}
+
+	userService, err := user.NewService(ss.userStore)
 	if err != nil {
 		return err
 	}
 
 	userController := &http.UserController{Service: *userService}
 
-	clientService, err := client.NewService(clientStore)
+	clientService, err := client.NewService(ss.clientStore)
 	if err != nil {
 		return err
 	}
 
 	clientController := &http.ClientController{Service: *clientService}
 
-	authService, err := auth.NewService(userStore)
+	authService, err := auth.NewService(ss.userStore)
 	if err != nil {
 		return err
 	}
@@ -109,4 +95,44 @@ func initializeFlags() flags {
 	flag.Parse()
 
 	return fs
+}
+
+type stores struct {
+	userStore   store.UserStore
+	clientStore store.ClientStore
+}
+
+func getMemStores() (stores, error) {
+	db := mem.NewDB()
+
+	userStore, err := mem.NewUserStore(db)
+	if err != nil {
+		return stores{}, err
+	}
+
+	clientStore, err := mem.NewClientStore(db)
+	if err != nil {
+		return stores{}, err
+	}
+
+	return stores{userStore: userStore, clientStore: clientStore}, nil
+}
+
+func getSqliteStores(dsn string) (stores, error) {
+	db, err := sqlite.NewDB(dsn)
+	if err != nil {
+		return stores{}, err
+	}
+
+	userStore, err := sqlite.NewUserStore(db)
+	if err != nil {
+		return stores{}, err
+	}
+
+	clientStore, err := sqlite.NewClientStore(db)
+	if err != nil {
+		return stores{}, err
+	}
+
+	return stores{userStore: userStore, clientStore: clientStore}, nil
 }

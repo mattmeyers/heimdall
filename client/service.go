@@ -6,16 +6,11 @@ import (
 	"github.com/mattmeyers/heimdall/store"
 )
 
-type ClientStore interface {
-	GetByClientID(ctx context.Context, id string) (store.Client, error)
-	Create(ctx context.Context, c store.Client) (int, error)
-}
-
 type Service struct {
-	clientStore ClientStore
+	clientStore store.ClientStore
 }
 
-func NewService(s ClientStore) (*Service, error) {
+func NewService(s store.ClientStore) (*Service, error) {
 	return &Service{clientStore: s}, nil
 }
 
