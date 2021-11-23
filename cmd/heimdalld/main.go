@@ -6,14 +6,17 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/mattmeyers/heimdall/auth"
 	"github.com/mattmeyers/heimdall/client"
 	"github.com/mattmeyers/heimdall/http"
 	"github.com/mattmeyers/heimdall/logger"
 	"github.com/mattmeyers/heimdall/store"
-	"github.com/mattmeyers/heimdall/store/mem"
 	"github.com/mattmeyers/heimdall/store/sqlite"
 	"github.com/mattmeyers/heimdall/user"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
@@ -39,9 +42,9 @@ func run(args []string) error {
 	var ss stores
 	switch flags.storeDriver {
 	case "mem":
-		ss, err = getMemStores()
+		ss, err = getSqliteStores("file::memory:")
 	case "sqlite":
-		ss, err = getSqliteStores("file:db/data/heimdall-dev.db?mode=rw")
+		ss, err = getSqliteStores("file:db/data/heimdall-dev.db?mode=rwc")
 	default:
 		return errors.New("unknown driver")
 	}
@@ -49,6 +52,8 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	logger.Info("Using DB driver: %s", flags.storeDriver)
 
 	userService, err := user.NewService(ss.userStore)
 	if err != nil {
@@ -102,25 +107,26 @@ type stores struct {
 	clientStore store.ClientStore
 }
 
-func getMemStores() (stores, error) {
-	db := mem.NewDB()
-
-	userStore, err := mem.NewUserStore(db)
-	if err != nil {
-		return stores{}, err
-	}
-
-	clientStore, err := mem.NewClientStore(db)
-	if err != nil {
-		return stores{}, err
-	}
-
-	return stores{userStore: userStore, clientStore: clientStore}, nil
-}
-
 func getSqliteStores(dsn string) (stores, error) {
 	db, err := sqlite.NewDB(dsn)
 	if err != nil {
+		return stores{}, err
+	}
+
+	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	if err != nil {
+		return stores{}, err
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://./db/migrations/sqlite",
+		"sqlite", driver)
+	if err != nil {
+		return stores{}, err
+	}
+
+	err = m.Up()
+	if err != migrate.ErrNoChange && err != nil {
 		return stores{}, err
 	}
 
