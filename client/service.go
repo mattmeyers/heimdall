@@ -2,6 +2,9 @@ package client
 
 import (
 	"context"
+	"errors"
+	"net/url"
+	"strings"
 
 	"github.com/mattmeyers/heimdall/store"
 )
@@ -18,7 +21,14 @@ func (s *Service) Get(ctx context.Context, clientID string) (store.Client, error
 	return s.clientStore.GetByClientID(ctx, clientID)
 }
 
-func (s *Service) Register(ctx context.Context) (c store.Client, err error) {
+func (s *Service) Register(ctx context.Context, redirectURLs []string) (store.Client, error) {
+	err := validateRedirectURLs(redirectURLs)
+	if err != nil {
+		return store.Client{}, err
+	}
+
+	c := store.Client{RedirectURLs: redirectURLs}
+
 	if c.ClientID, err = generateClientID(); err != nil {
 		return store.Client{}, err
 	}
@@ -32,4 +42,19 @@ func (s *Service) Register(ctx context.Context) (c store.Client, err error) {
 	}
 
 	return c, nil
+}
+
+func validateRedirectURLs(urls []string) error {
+	for _, u := range urls {
+		parsedU, err := url.Parse(u)
+		if err != nil {
+			return err
+		}
+
+		if parsedU.Fragment != "" || strings.HasSuffix(u, "#") {
+			return errors.New("redirect url must not contain a fragment")
+		}
+	}
+
+	return nil
 }
