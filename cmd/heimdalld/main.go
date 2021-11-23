@@ -42,9 +42,9 @@ func run(args []string) error {
 	var ss stores
 	switch flags.storeDriver {
 	case "mem":
-		ss, err = getSqliteStores("file::memory:")
+		ss, err = getSqliteStores("file::memory:", false)
 	case "sqlite":
-		ss, err = getSqliteStores("file:db/data/heimdall-dev.db?mode=rwc")
+		ss, err = getSqliteStores("file:db/data/heimdall-dev.db?mode=rwc", flags.noMigrate)
 	default:
 		return errors.New("unknown driver")
 	}
@@ -89,12 +89,14 @@ func run(args []string) error {
 type flags struct {
 	storeDriver string
 	logLevel    string
+	noMigrate   bool
 }
 
 func initializeFlags() flags {
 	var fs flags
 
 	flag.StringVar(&fs.storeDriver, "driver", "mem", "Database driver: mem, sqlite")
+	flag.BoolVar(&fs.noMigrate, "no-migrate", false, "Prevent migrating db. Ignored for mem driver.")
 	flag.StringVar(&fs.logLevel, "log-level", "info", "Min log level: debug, info, warn, error, fatal")
 
 	flag.Parse()
@@ -107,27 +109,29 @@ type stores struct {
 	clientStore store.ClientStore
 }
 
-func getSqliteStores(dsn string) (stores, error) {
+func getSqliteStores(dsn string, noMigrate bool) (stores, error) {
 	db, err := sqlite.NewDB(dsn)
 	if err != nil {
 		return stores{}, err
 	}
 
-	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
-	if err != nil {
-		return stores{}, err
-	}
+	if !noMigrate {
+		driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+		if err != nil {
+			return stores{}, err
+		}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://./db/migrations/sqlite",
-		"sqlite", driver)
-	if err != nil {
-		return stores{}, err
-	}
+		m, err := migrate.NewWithDatabaseInstance(
+			"file://./db/migrations/sqlite",
+			"sqlite", driver)
+		if err != nil {
+			return stores{}, err
+		}
 
-	err = m.Up()
-	if err != migrate.ErrNoChange && err != nil {
-		return stores{}, err
+		err = m.Up()
+		if err != migrate.ErrNoChange && err != nil {
+			return stores{}, err
+		}
 	}
 
 	userStore, err := sqlite.NewUserStore(db)
