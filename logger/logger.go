@@ -75,7 +75,7 @@ func ParseLevel(l string) (Level, error) {
 }
 
 func (l Level) validate() error {
-	if strings.HasPrefix("%!", l.String()) {
+	if strings.HasPrefix(l.String(), "%!") {
 		return errors.New("invalid Level")
 	}
 
