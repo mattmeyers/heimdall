@@ -17,14 +17,15 @@ var templateFS embed.FS
 var templates = template.Must(template.ParseFS(templateFS, "templates/*"))
 
 type Service struct {
-	userStore store.UserStore
+	userStore   store.UserStore
+	clientStore store.ClientStore
 }
 
-func NewService(userStore store.UserStore) (*Service, error) {
-	return &Service{userStore: userStore}, nil
+func NewService(userStore store.UserStore, clientStore store.ClientStore) (*Service, error) {
+	return &Service{userStore: userStore, clientStore: clientStore}, nil
 }
 
-func (s *Service) Login(ctx context.Context, email string, password string) (string, error) {
+func (s *Service) Login(ctx context.Context, email, password, clientID, redirectURL string) (string, error) {
 	u, err := s.userStore.GetByEmail(ctx, email)
 	if err != nil {
 		return "", err
@@ -39,7 +40,27 @@ func (s *Service) Login(ctx context.Context, email string, password string) (str
 		return "", errors.New("invalid password")
 	}
 
+	err = s.validateRedirectURL(ctx, clientID, redirectURL)
+	if err != nil {
+		return "", err
+	}
+
 	return generateJWT()
+}
+
+func (s *Service) validateRedirectURL(ctx context.Context, clientID, redirectURL string) error {
+	c, err := s.clientStore.GetByClientID(ctx, clientID)
+	if err != nil {
+		return err
+	}
+
+	for _, u := range c.RedirectURLs {
+		if redirectURL == u {
+			return nil
+		}
+	}
+
+	return errors.New("invalid redirect URL")
 }
 
 func (s *Service) ImplicitFlow(ctx context.Context, clientID, redirectURL string) ([]byte, error) {

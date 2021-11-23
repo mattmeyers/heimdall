@@ -38,7 +38,7 @@ func (c *AuthController) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := c.Service.Login(r.Context(), body.Email, body.Password)
+	token, err := c.Service.Login(r.Context(), body.Email, body.Password, body.ClientID, body.RedirectURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
