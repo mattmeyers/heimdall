@@ -83,7 +83,7 @@ func getloginBodyFromForm(r *http.Request) (loginBody, error) {
 	}, nil
 }
 
-func generateLoginRedirect(redirectURL, token string) (string, error) {
+func generateLoginRedirect(redirectURL string, token auth.Token) (string, error) {
 	u, err := url.Parse(redirectURL)
 	if err != nil {
 		return "", err
@@ -91,9 +91,9 @@ func generateLoginRedirect(redirectURL, token string) (string, error) {
 
 	params := u.Query()
 
-	params.Set("token", token)
+	params.Set("token", token.SignedString)
 	params.Set("token_type", "JWT")
-	params.Set("expires_in", strconv.Itoa(auth.JWTLifespan))
+	params.Set("expires_in", strconv.Itoa(token.Lifespan))
 
 	u.RawQuery = params.Encode()
 

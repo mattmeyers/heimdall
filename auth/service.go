@@ -19,33 +19,34 @@ var templates = template.Must(template.ParseFS(templateFS, "templates/*"))
 type Service struct {
 	userStore   store.UserStore
 	clientStore store.ClientStore
+	jwtSettings JWTSettings
 }
 
-func NewService(userStore store.UserStore, clientStore store.ClientStore) (*Service, error) {
-	return &Service{userStore: userStore, clientStore: clientStore}, nil
+func NewService(userStore store.UserStore, clientStore store.ClientStore, jwtSettings JWTSettings) (*Service, error) {
+	return &Service{userStore: userStore, clientStore: clientStore, jwtSettings: jwtSettings}, nil
 }
 
-func (s *Service) Login(ctx context.Context, email, password, clientID, redirectURL string) (string, error) {
+func (s *Service) Login(ctx context.Context, email, password, clientID, redirectURL string) (Token, error) {
 	u, err := s.userStore.GetByEmail(ctx, email)
 	if err != nil {
-		return "", err
+		return Token{}, err
 	}
 
 	valid, err := crypto.ValidatePassword(password, u.Hash)
 	if err != nil {
-		return "", err
+		return Token{}, err
 	}
 
 	if !valid {
-		return "", errors.New("invalid password")
+		return Token{}, errors.New("invalid password")
 	}
 
 	err = s.validateRedirectURL(ctx, clientID, redirectURL)
 	if err != nil {
-		return "", err
+		return Token{}, err
 	}
 
-	return generateJWT()
+	return generateJWT(s.jwtSettings)
 }
 
 func (s *Service) validateRedirectURL(ctx context.Context, clientID, redirectURL string) error {

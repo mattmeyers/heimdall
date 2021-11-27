@@ -34,8 +34,8 @@ type ArgonParams struct {
 // configuration should be provided for a production deployment in order to harden
 // the service for the hardware it is running on.
 var DefaultParams = ArgonParams{
-	Time:    1,
-	Memory:  2_097_152, // 2 GiB
+	Time:    3,
+	Memory:  64 * 1024, // 64 KiB
 	Threads: 4,
 	KeyLen:  32,
 	SaltLen: 16,
