@@ -8,26 +8,29 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
+// Token holds the information required for transmitting the JWT to the client.
 type Token struct {
 	SignedString string
 	Lifespan     int
 }
 
-type SigningAlgorithm string
+type signingAlgorithm string
 
+// The valid JWT hashing function algorithms.
 const (
-	HMAC256Algorithm SigningAlgorithm = "HS256"
+	HMAC256Algorithm signingAlgorithm = "HS256"
 )
 
-func (a SigningAlgorithm) isValid() bool {
+func (a signingAlgorithm) isValid() bool {
 	return a == HMAC256Algorithm
 }
 
+// JWTSettings are the available configuration values for generating JWTs.
 type JWTSettings struct {
 	Issuer     string
 	Lifespan   int
 	SigningKey string
-	Algorithm  SigningAlgorithm
+	Algorithm  signingAlgorithm
 }
 
 func (s JWTSettings) validate() error {
@@ -64,7 +67,7 @@ func generateJWT(settings JWTSettings) (Token, error) {
 		ExpiresAt: jwt.NewNumericDate(now.Add(time.Second * time.Duration(settings.Lifespan))),
 	}
 
-	signed, err := t.SignedString(settings.SigningKey)
+	signed, err := t.SignedString([]byte(settings.SigningKey))
 	if err != nil {
 		return Token{}, err
 	}
