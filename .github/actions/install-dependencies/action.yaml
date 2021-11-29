@@ -6,6 +6,7 @@ runs:
     - name: Get go mod cache path
       id: go-mod-cache-dir-path
       run: echo "::set-output name=dir::$(go env GOMODCACHE)"
+      shell: bash
 
     - name: Cache go mod dependencies
       uses: actions/cache@v2
@@ -17,3 +18,4 @@ runs:
 
     - name: Download dependencies
       run: go get -d -t ./...
+      shell: bash
