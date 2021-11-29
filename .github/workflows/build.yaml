@@ -5,72 +5,52 @@ on:
   pull_request:
 
 jobs:
-  install_dependencies:
+  build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.17
-        
-    - name: Get go mod cache path
-      id: go-mod-cache-dir-path
-      run: echo "::set-output name=dir::$(go env GOMODCACHE)"
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
 
-    - name: Cache go mod dependencies
-      uses: actions/cache@v2
-      with:
-        path: ${{ steps.go-mod-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-gomod-
+      - uses: ./.github/actions/install-dependencies
 
-    - name: Download dependencies
-      run: go get -d -t ./...
+      - name: Build
+        run: go build -o heimdalld cmd/heimdalld/*.go
 
   lint:
     runs-on: ubuntu-latest
-    needs: install_dependencies
+    needs: build
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.17
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
 
-    - name: Check formatting
-      run: diff -u <(echo -n) <(gofmt -d ./)
+      - name: Check formatting
+        run: diff -u <(echo -n) <(gofmt -d ./)
 
   test:
     runs-on: ubuntu-latest
-    needs: install_dependencies
+    needs: build
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.17
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
 
-    - name: Get go mod cache path
-      id: go-mod-cache-dir-path
-      run: echo "::set-output name=dir::$(go env GOMODCACHE)"
+      - uses: ./.github/actions/install-dependencies
 
-    - name: Cache go mod dependencies
-      uses: actions/cache@v2
-      with:
-        path: ${{ steps.go-mod-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-gomod-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-gomod-
-
-    - name: Run unit tests
-      run: go test -v ./...
+      - name: Run unit tests
+        run: go test -v ./...
       
    
