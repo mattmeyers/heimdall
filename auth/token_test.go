@@ -113,7 +113,7 @@ func Test_generateJWT(t *testing.T) {
 				return
 			}
 
-			if !tt.wantErr && (got.Lifespan != tt.want.Lifespan || got.SignedString == "") {
+			if !tt.wantErr && (got.Lifespan != tt.want.Lifespan || got.AccessToken == "") {
 				t.Errorf("generateJWT() = %+v, want %+v", got, tt.want)
 			}
 		})

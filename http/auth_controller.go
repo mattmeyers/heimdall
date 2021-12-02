@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
@@ -18,6 +17,7 @@ type AuthController struct {
 func (c *AuthController) Register(router *httprouter.Router) {
 	router.HandlerFunc(http.MethodGet, "/auth", c.handleAuth)
 	router.HandlerFunc(http.MethodPost, "/login", c.handleLogin)
+	router.HandlerFunc(http.MethodPost, "/oauth/token", c.handleToken)
 }
 
 func (c *AuthController) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +83,7 @@ func getloginBodyFromForm(r *http.Request) (loginBody, error) {
 	}, nil
 }
 
-func generateLoginRedirect(redirectURL string, token auth.Token) (string, error) {
+func generateLoginRedirect(redirectURL string, token string) (string, error) {
 	u, err := url.Parse(redirectURL)
 	if err != nil {
 		return "", err
@@ -91,9 +91,8 @@ func generateLoginRedirect(redirectURL string, token auth.Token) (string, error)
 
 	params := u.Query()
 
-	params.Set("token", token.SignedString)
+	params.Set("token", token)
 	params.Set("token_type", "JWT")
-	params.Set("expires_in", strconv.Itoa(token.Lifespan))
 
 	u.RawQuery = params.Encode()
 
@@ -102,11 +101,11 @@ func generateLoginRedirect(redirectURL string, token auth.Token) (string, error)
 
 func (c *AuthController) handleAuth(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Query().Get("response_type") {
-	case "token":
+	case "code":
 		clientID := r.URL.Query().Get("client_id")
 		redirectURL := r.URL.Query().Get("redirect_url")
 
-		tmpl, err := c.Service.ImplicitFlow(r.Context(), clientID, redirectURL)
+		tmpl, err := c.Service.AuthCodeFlow(r.Context(), clientID, redirectURL)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -117,6 +116,60 @@ func (c *AuthController) handleAuth(w http.ResponseWriter, r *http.Request) {
 		w.Write(tmpl)
 	default:
 		http.Error(w, "missing or invalid response_type", http.StatusBadRequest)
+		return
+	}
+}
+
+type tokenRequestBody struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURL  string `json:"redirect_uri"`
+	AuthCode     string `json:"code"`
+}
+
+type tokenResponseBody struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	TokenType    string `json:"token_type"`
+	Expires      int    `json:"expires"`
+}
+
+func (c *AuthController) handleToken(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Query().Get("grant_type") {
+	case "authorization_code":
+		var body tokenRequestBody
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "malformed request body", http.StatusBadRequest)
+			return
+		}
+
+		token, err := c.Service.ConvertCodeToToken(
+			r.Context(),
+			body.AuthCode,
+			body.ClientID,
+			body.ClientSecret,
+			body.RedirectURL,
+		)
+		if err != nil {
+			http.Error(w, "invalid auth code", http.StatusUnauthorized)
+			return
+		}
+
+		out, err := json.Marshal(tokenResponseBody{
+			AccessToken: token.AccessToken,
+			TokenType:   "bearer",
+			Expires:     token.Lifespan,
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(200)
+		w.Write(out)
+	default:
+		http.Error(w, "missing or invalid grant_type", http.StatusBadRequest)
 		return
 	}
 }

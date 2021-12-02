@@ -72,6 +72,7 @@ func run(args []string) error {
 	authService, err := auth.NewService(
 		ss.userStore,
 		ss.clientStore,
+		ss.authCodeStore,
 		auth.JWTSettings{},
 	)
 	if err != nil {
@@ -109,8 +110,9 @@ func initializeFlags() flags {
 }
 
 type stores struct {
-	userStore   store.UserStore
-	clientStore store.ClientStore
+	userStore     store.UserStore
+	clientStore   store.ClientStore
+	authCodeStore store.AuthCodeStore
 }
 
 func getSqliteStores(dsn string, noMigrate bool) (stores, error) {
@@ -148,5 +150,10 @@ func getSqliteStores(dsn string, noMigrate bool) (stores, error) {
 		return stores{}, err
 	}
 
-	return stores{userStore: userStore, clientStore: clientStore}, nil
+	authCodeStore, err := sqlite.NewAuthCodeStore(db)
+	if err != nil {
+		return stores{}, err
+	}
+
+	return stores{userStore: userStore, clientStore: clientStore, authCodeStore: authCodeStore}, nil
 }

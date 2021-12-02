@@ -32,7 +32,7 @@ func (s *AuthCodeStore) GetByCode(ctx context.Context, code string) (store.AuthC
 	return c, nil
 }
 
-func (s *AuthCodeStore) Create(ctx context.Context, code store.AuthCode) (int, error) {
+func (s *AuthCodeStore) Insert(ctx context.Context, code store.AuthCode) (int, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return 0, err

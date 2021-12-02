@@ -10,8 +10,8 @@ import (
 
 // Token holds the information required for transmitting the JWT to the client.
 type Token struct {
-	SignedString string
-	Lifespan     int
+	AccessToken string
+	Lifespan    int
 }
 
 type signingAlgorithm string
@@ -73,7 +73,7 @@ func generateJWT(settings JWTSettings) (Token, error) {
 	}
 
 	return Token{
-		SignedString: signed,
-		Lifespan:     settings.Lifespan,
+		AccessToken: signed,
+		Lifespan:    settings.Lifespan,
 	}, nil
 }
