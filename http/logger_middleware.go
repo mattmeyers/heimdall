@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mattmeyers/heimdall/logger"
+	"github.com/mattmeyers/level"
 )
 
 type loggerMiddleware struct {
-	logger logger.Logger
+	logger level.Logger
 	next   http.Handler
 }
 
@@ -29,7 +29,7 @@ func (w *logWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func newLoggingMiddleware(l logger.Logger) Middleware {
+func newLoggingMiddleware(l level.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return &loggerMiddleware{
 			logger: l,

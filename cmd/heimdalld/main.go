@@ -12,10 +12,10 @@ import (
 	"github.com/mattmeyers/heimdall/auth"
 	"github.com/mattmeyers/heimdall/client"
 	"github.com/mattmeyers/heimdall/http"
-	"github.com/mattmeyers/heimdall/logger"
 	"github.com/mattmeyers/heimdall/store"
 	"github.com/mattmeyers/heimdall/store/sqlite"
 	"github.com/mattmeyers/heimdall/user"
+	"github.com/mattmeyers/level"
 	_ "modernc.org/sqlite"
 )
 
@@ -29,12 +29,12 @@ func main() {
 func run(args []string) error {
 	flags := initializeFlags()
 
-	logLevel, err := logger.ParseLevel(flags.logLevel)
+	logLevel, err := level.ParseLevel(flags.logLevel)
 	if err != nil {
 		return err
 	}
 
-	logger, err := logger.NewLevelLogger(logLevel, nil)
+	logger, err := level.NewBasicLogger(logLevel, nil)
 	if err != nil {
 		return err
 	}

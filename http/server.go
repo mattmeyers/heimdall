@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/mattmeyers/heimdall/logger"
+	"github.com/mattmeyers/level"
 )
 
 // Registerer represents a type that can register its routes. Generally, this is a controller
@@ -37,13 +37,13 @@ func Chain(h http.Handler, ms ...Middleware) http.Handler {
 type Server struct {
 	s      *http.Server
 	router *httprouter.Router
-	logger logger.Logger
+	logger level.Logger
 
 	loggingMiddleware Middleware
 }
 
 // NewServer constructs a new server object with all of the default values.
-func NewServer(addr string, logger logger.Logger) (*Server, error) {
+func NewServer(addr string, logger level.Logger) (*Server, error) {
 	return &Server{
 		s:                 &http.Server{Addr: addr},
 		router:            httprouter.New(),
