@@ -35,7 +35,7 @@ type ArgonParams struct {
 // the service for the hardware it is running on.
 var DefaultParams = ArgonParams{
 	Time:    1,
-	Memory:  2_097_152, // 2 GiB
+	Memory:  32_768, // 32 MiB
 	Threads: 4,
 	KeyLen:  32,
 	SaltLen: 16,

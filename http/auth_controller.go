@@ -16,48 +16,52 @@ type AuthController struct {
 
 func (c *AuthController) Register(router *httprouter.Router) {
 	router.HandlerFunc(http.MethodGet, "/auth", c.handleAuth)
-	router.HandlerFunc(http.MethodPost, "/login", c.handleLogin)
 	router.HandlerFunc(http.MethodPost, "/oauth/token", c.handleToken)
+	router.Handler(http.MethodPost, "/auth/register", c.handleRegister())
+	router.Handler(http.MethodPost, "/auth/login", c.handleLogin())
+	router.Handler(http.MethodGet, "/auth/validate", c.handleValidate())
 }
 
-func (c *AuthController) handleLogin(w http.ResponseWriter, r *http.Request) {
-	var body loginBody
-	var err error
+func (c *AuthController) handleLogin() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body loginBody
+		var err error
 
-	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		body, err = getloginBodyFromJSON(r)
-	} else if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
-		body, err = getloginBodyFromForm(r)
-	} else {
-		http.Error(w, "Unsupported media type", http.StatusUnsupportedMediaType)
-		return
-	}
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+			body, err = getloginBodyFromJSON(r)
+		} else if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+			body, err = getloginBodyFromForm(r)
+		} else {
+			http.Error(w, "Unsupported media type", http.StatusUnsupportedMediaType)
+			return
+		}
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	token, err := c.Service.Login(r.Context(), body.Email, body.Password, body.ClientID, body.RedirectURL)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
+		token, err := c.Service.Login(r.Context(), body.Email, body.Password)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
 
-	redirect, err := generateLoginRedirect(body.RedirectURL, token)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		resBody, err := json.Marshal(token)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	http.Redirect(w, r, redirect, http.StatusSeeOther)
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Write(resBody)
+	})
 }
 
 type loginBody struct {
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-	ClientID    string `json:"client_id"`
-	RedirectURL string `json:"redirect_url"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 func getloginBodyFromJSON(r *http.Request) (loginBody, error) {
@@ -76,10 +80,8 @@ func getloginBodyFromForm(r *http.Request) (loginBody, error) {
 	}
 
 	return loginBody{
-		Email:       r.FormValue("email"),
-		Password:    r.FormValue("password"),
-		ClientID:    r.FormValue("client_id"),
-		RedirectURL: r.FormValue("redirect_url"),
+		Email:    r.FormValue("email"),
+		Password: r.FormValue("password"),
 	}, nil
 }
 
@@ -172,4 +174,53 @@ func (c *AuthController) handleToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing or invalid grant_type", http.StatusBadRequest)
 		return
 	}
+}
+
+func (c *AuthController) handleRegister() http.Handler {
+	type RequestBody struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body RequestBody
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = c.Service.Register(r.Context(), body.Email, body.Password)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		w.Write(nil)
+	})
+}
+func (c *AuthController) handleValidate() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "missing Authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		bearer, token, ok := strings.Cut(authHeader, " ")
+		if !ok || bearer != "Bearer" {
+			http.Error(w, "malformed Authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		err := c.Service.ValidateToken(r.Context(), token)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(nil)
+	})
 }

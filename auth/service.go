@@ -6,6 +6,7 @@ import (
 	"embed"
 	"errors"
 	"html/template"
+	"strings"
 	"time"
 
 	"github.com/mattmeyers/heimdall/crypto"
@@ -35,37 +36,48 @@ func NewService(userStore store.UserStore,
 		jwtSettings:   jwtSettings}, nil
 }
 
-func (s *Service) Login(ctx context.Context, email, password, clientID, redirectURL string) (string, error) {
+func (s *Service) Register(ctx context.Context, email, password string) error {
+	if len(password) < 6 {
+		return errors.New("password too short")
+	}
+
+	if !strings.Contains(email, "@") {
+		return errors.New("invalid email")
+	}
+
+	hashedPassword, err := crypto.GetPasswordHash(password, crypto.DefaultParams)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.userStore.Create(ctx, store.User{Email: email, Hash: hashedPassword})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) Login(ctx context.Context, email, password string) (Token, error) {
 	u, err := s.userStore.GetByEmail(ctx, email)
 	if err != nil {
-		return "", err
+		return Token{}, err
 	}
 
 	valid, err := crypto.ValidatePassword(password, u.Hash)
 	if err != nil {
-		return "", err
+		return Token{}, err
 	}
 
 	if !valid {
-		return "", errors.New("invalid password")
+		return Token{}, errors.New("invalid password")
 	}
 
-	err = s.validateRedirectURL(ctx, clientID, redirectURL)
-	if err != nil {
-		return "", err
-	}
+	return generateJWT(s.jwtSettings)
+}
 
-	code, err := generateAuthCode()
-	if err != nil {
-		return "", err
-	}
-
-	_, err = s.authCodeStore.Insert(ctx, store.AuthCode{Code: code, UserID: u.ID})
-	if err != nil {
-		return "", err
-	}
-
-	return code, nil
+func (s *Service) ValidateToken(ctx context.Context, token string) error {
+	return validateJWT(token, s.jwtSettings)
 }
 
 func (s *Service) validateRedirectURL(ctx context.Context, clientID, redirectURL string) error {

@@ -73,7 +73,12 @@ func run(args []string) error {
 		ss.userStore,
 		ss.clientStore,
 		ss.authCodeStore,
-		auth.JWTSettings{},
+		auth.JWTSettings{
+			Issuer:     "heimdall",
+			Lifespan:   3600,
+			SigningKey: "so-secret-wow",
+			Algorithm:  auth.HMAC256Algorithm,
+		},
 	)
 	if err != nil {
 		return err

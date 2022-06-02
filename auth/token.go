@@ -77,3 +77,12 @@ func generateJWT(settings JWTSettings) (Token, error) {
 		Lifespan:    settings.Lifespan,
 	}, nil
 }
+
+func validateJWT(token string, settings JWTSettings) error {
+	_, err := jwt.Parse(
+		token,
+		func(t *jwt.Token) (interface{}, error) { return []byte(settings.SigningKey), nil },
+	)
+
+	return err
+}

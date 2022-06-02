@@ -9,6 +9,8 @@ import (
 	"modernc.org/sqlite"
 )
 
+var _ store.UserStore = (*UserStore)(nil)
+
 type UserStore struct {
 	db *sql.DB
 }
